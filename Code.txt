@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-# Setup Bigtable client
+# Setup Bigtable
 PROJECT_ID = "amiable-mix-453321-b0"
 INSTANCE_ID = "ev-bigtable"
 TABLE_ID = "ev-population"
@@ -112,3 +112,38 @@ def delete_old_models():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
+
+# Data load Script
+
+from google.cloud import bigtable
+from google.cloud.bigtable import row
+import pandas as pd
+
+
+df = pd.read_csv("Electric_Vehicle_Population_Data.csv")  
+df.columns = df.columns.str.strip()  
+
+
+client = bigtable.Client(project="amiable-mix-453321-b0", admin=True)
+instance = client.instance("ev-bigtable")
+table = instance.table("ev-population")
+
+
+i = 0 
+for _, r in df.iterrows():
+    row_key = str(r["DOL Vehicle ID"]).encode()
+    bt_row = table.direct_row(row_key)
+    i += 1
+    if i%5000 == 0:
+        print("Row Loaded")
+    bt_row.set_cell("ev_info", "make", str(r["Make"]))
+    bt_row.set_cell("ev_info", "model", str(r["Model"]))
+    bt_row.set_cell("ev_info", "model year", str(r["Model Year"]))
+    bt_row.set_cell("ev_info", "electric range", str(r["Electric Range"]))
+    bt_row.set_cell("ev_info", "city", str(r["City"]))
+    bt_row.set_cell("ev_info", "county", str(r["County"]))
+
+    bt_row.commit()
+
+print("Data load done!")
